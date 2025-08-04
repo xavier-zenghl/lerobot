@@ -63,7 +63,7 @@ DEFAULT_FEATURES = {
     "frame_index": {"dtype": "int64", "shape": (1,), "names": None},
     "episode_index": {"dtype": "int64", "shape": (1,), "names": None},
     "index": {"dtype": "int64", "shape": (1,), "names": None},
-    "task_index": {"dtype": "int64", "shape": (1,), "names": None},
+    "task_index": {"dtype": "int64", "shape": (2,), "names": ["coarse_instruction", "fine_instruction"]},
 }
 
 

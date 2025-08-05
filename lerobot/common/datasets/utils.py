@@ -63,7 +63,7 @@ DEFAULT_FEATURES = {
     "frame_index": {"dtype": "int64", "shape": (1,), "names": None},
     "episode_index": {"dtype": "int64", "shape": (1,), "names": None},
     "index": {"dtype": "int64", "shape": (1,), "names": None},
-    "task_index": {"dtype": "int64", "shape": (2,), "names": ["Coarse command", "Detailed command"]},
+    "task_index": {"dtype": "int64", "shape": (2,), "names": ["coarse_instruction", "fine_instruction"]},
 }
 
 
@@ -75,6 +75,7 @@ def flatten_dict(d: dict, parent_key: str = "", sep: str = "/") -> dict:
     >>> dct = {"a": {"b": 1, "c": {"d": 2}}, "e": 3}`
     >>> print(flatten_dict(dct))
     {"a/b": 1, "a/c/d": 2, "e": 3}
+    ```
     """
     items = []
     for k, v in d.items():

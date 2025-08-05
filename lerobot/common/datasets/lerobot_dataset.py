@@ -777,9 +777,9 @@ class LeRobotDataset(torch.utils.data.Dataset):
                     "task": task,
                 }
                 append_jsonlines(task_dict, self.root / TASKS_PATH)
-        
+                
+        self.episode_buffer["task_index"].append(task_indexs) 
         self.episode_buffer["size"] += 1
-        self.episode_buffer["task_index"].append(task_indexs)
 
     def save_episode(self, task: str, encode_videos: bool = True, episode_data: dict | None = None) -> None:
         """
@@ -820,6 +820,8 @@ class LeRobotDataset(torch.utils.data.Dataset):
                 )
             elif key == "episode_index":
                 episode_buffer[key] = np.full((episode_length,), episode_index)
+            # elif key == "task_index":
+            #     episode_buffer[key] = np.full((episode_length,), task_index)
             elif ft["dtype"] in ["image", "video"]:
                 continue
             elif len(ft["shape"]) == 1 and ft["shape"][0] == 1:

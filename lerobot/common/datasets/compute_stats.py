@@ -38,6 +38,9 @@ def get_stats_einops_patterns(dataset, num_workers=0):
     stats_patterns = {}
 
     for key in dataset.features:
+        if "images_dict" in key:
+            continue
+
         # sanity check that tensors are not float64
         assert batch[key].dtype != torch.float64
 

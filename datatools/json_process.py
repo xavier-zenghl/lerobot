@@ -159,7 +159,7 @@ def transform_annotation_to_instruction(data_Path: Path) -> dict:
                     if subject != '':
                         prompt = 'the ' + subject.replace("_", " ")  + ' ' + prompt
                             
-                    ### 修改这一部分适应数据集
+                    ### 细指令 修改这一部分适应数据集
 
                     prompt = prompt.replace('_', ' ')
                     clean_labels = {
@@ -195,7 +195,7 @@ def transform_annotation_to_instruction(data_Path: Path) -> dict:
                     ### 方案二，根据当前frame的prompt生成粗指令，请自行填补
                     
                     ###
-                ### 修改这一部分适应数据集
+                ### 粗指令 修改这一部分适应数据集
 
                 coarse_label_dict[src_file] = coarse_frames
             except Exception as e:

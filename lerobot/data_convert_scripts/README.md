@@ -33,21 +33,57 @@ lerobot/
 
 在使用转换脚本之前，需要先为HDF5文件添加prompt标签，请根据task修改json_process.py：
 ```
-### 修改这一部分适应数据集
-subject = label['attributes']['Arm']
-subject = subject[0] if len(subject) > 0 else ''
-object = label['attributes']['Object']
-object = object[0] if len(object) > 0 else ''
-target = label['attributes']['Action']
-target = target[0] if len(target) > 0 else ''
-# target = label['attributes']['Target'][0]
+    ### 细指令 修改这一部分适应数据集
+    subject = label['attributes']['Arm']
+    subject = subject[0] if len(subject) > 0 else ''
+    object = label['attributes']['Object']
+    object = object[0] if len(object) > 0 else ''
+    target = label['attributes']['Action']
+    target = target[0] if len(target) > 0 else ''
+    # target = label['attributes']['Target'][0]
 
-prompt = TARGET_DICT[target].format(preprocess_object(object))
+    prompt = TARGET_DICT[target].format(preprocess_object(object))
+    
+    if subject != '':
+        prompt = 'the ' + subject.replace("_", " ")  + ' ' + prompt
+            
+    ### 细指令 修改这一部分适应数据集
 
-if subject != '':
-    prompt = 'the ' + subject.replace("_", " ")  + ' ' + prompt
-        
-### 修改这一部分适应数据集
+    prompt = prompt.replace('_', ' ')
+    clean_labels = {
+            'frame': int(label['time'] * 30),
+            'prompt': prompt,
+            'valid': True
+    }
+    frames.append(clean_labels)
+
+label_dict[src_file] = frames
+
+### 粗指令 修改这一部分适应数据集
+coarse_frames = []
+for frame in frames:
+    if not frame['valid']:
+        coarse_labels = {
+            'frame': frame['frame'],
+            'prompt': 'None',
+            'valid': False
+        }
+        coarse_frames.append(coarse_labels)
+        continue
+
+    ### 方案一，当前任务使用统一的粗指令填充
+    coarse_prompt = 'A robot is positioned in front of the checkout counter, where three different types of items and a shopping bag are placed. Packing in the supermarket.'
+    coarse_labels = {
+        'frame': frame['frame'],
+        'prompt': coarse_prompt,
+        'valid': True
+    }
+    coarse_frames.append(coarse_labels)
+
+    ### 方案二，根据当前frame的prompt生成粗指令，请自行填补
+    
+    ###
+### 粗指令 修改这一部分适应数据集
 ```
 
 ```bash

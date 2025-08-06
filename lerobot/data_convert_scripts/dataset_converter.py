@@ -137,6 +137,7 @@ class S1HD5Extractor:
             # 按照分段提取数据
             frames = []
             tasks_list = []
+            coarse_tasks_list = []
             for frame_idx in range(file["/joints_dict/joints_position_command"].shape[0]):
                 frame = {}
                 for feature_id in features:
@@ -183,7 +184,8 @@ class S1HD5Extractor:
                         frame[feature_id] = torch.from_numpy(file[feature_name_hd5][frame_idx])
                 frames.append(frame)
                 tasks_list.append([file['prompt'][frame_idx].decode('utf-8')])
-        return frames, object, tasks_list
+                coarse_tasks_list.append(file['coarse_prompt'][frame_idx].decode('utf-8'))
+        return frames, object, tasks_list, coarse_tasks_list
 
     @staticmethod
     def extract_episode_frames_general(
@@ -488,17 +490,17 @@ class DatasetConverter:
         for idx, episode_path in enumerate(self.episode_list):
             try:
                 self.logger.info(f"Processing episode: {idx+1}/{self.epoch_num} => {episode_path.name}")
-                frames, object, tasks_list = S1HD5Extractor.extract_episode_frames_unsplit(
+                frames, object, tasks_list, coarse_tasks_list = S1HD5Extractor.extract_episode_frames_unsplit(
                     episode_path, self.features, self.hdf5_compressed
                 )
-                
+    
                 for frame, task in zip(frames, tasks_list):
                     if task[0] == 'None':
                         continue
-                    self.dataset.add_frame_no_save(frame, task, coarse_task=episode_description)
+                    self.dataset.add_frame_no_save(frame, task, coarse_task=coarse_tasks_list[0])
 
-                self.logger.info(f"Description: {episode_description} ...")
-                self.dataset.save_episode_no_save(task=episode_description, object=object)
+                self.logger.info(f"Description: {coarse_tasks_list[0]} ...")
+                self.dataset.save_episode_no_save(task=coarse_tasks_list[0], object=object)
             except Exception as e:
                 self.logger.error(f"[Error] {episode_path} => {e}")
                 traceback.print_exc()

@@ -118,6 +118,7 @@ def transform_annotation_to_instruction_old(data_list: List[Path], out_dir: str,
 def transform_annotation_to_instruction(data_Path: Path) -> dict:
     with open(data_Path, 'r') as f_r:
         label_dict = {}
+        coarse_label_dict = {}
         annotations = json.load(f_r)
         for labels in annotations:
             frames = []
@@ -144,7 +145,7 @@ def transform_annotation_to_instruction(data_Path: Path) -> dict:
                         frames.append(clean_labels)
                         continue
                     
-                    ### 修改这一部分适应数据集
+                    ### 细指令 修改这一部分适应数据集
                     subject = label['attributes']['Arm']
                     subject = subject[0] if len(subject) > 0 else ''
                     object = label['attributes']['Object']
@@ -169,19 +170,50 @@ def transform_annotation_to_instruction(data_Path: Path) -> dict:
                     frames.append(clean_labels)
                 
                 label_dict[src_file] = frames
+
+                ### 粗指令 修改这一部分适应数据集
+                coarse_frames = []
+                for frame in frames:
+                    if not frame['valid']:
+                        coarse_labels = {
+                            'frame': frame['frame'],
+                            'prompt': 'None',
+                            'valid': False
+                        }
+                        coarse_frames.append(coarse_labels)
+                        continue
+
+                    ### 方案一，当前任务使用统一的粗指令填充
+                    coarse_prompt = 'A robot is positioned in front of the checkout counter, where three different types of items and a shopping bag are placed. Packing in the supermarket.'
+                    coarse_labels = {
+                        'frame': frame['frame'],
+                        'prompt': coarse_prompt,
+                        'valid': True
+                    }
+                    coarse_frames.append(coarse_labels)
+
+                    ### 方案二，根据当前frame的prompt生成粗指令，请自行填补
+                    
+                    ###
+                ### 修改这一部分适应数据集
+
+                coarse_label_dict[src_file] = coarse_frames
             except Exception as e:
                 print(f'{src_file} error: {e}')
     
-    return label_dict
+    return label_dict, coarse_label_dict
 
                 
 def add_prompt_hdf5(data_list: List[Path]) -> None:
     labels = {}
-
+    coarse_labels = {}
     for data in tqdm(data_list):
-        labels.update(transform_annotation_to_instruction(data))
-   
+        label, coarse_label = transform_annotation_to_instruction(data)
+        labels.update(label)
+        coarse_labels.update(coarse_label)
+
     # with open(log_file, 'w') as f:
+    # 处理细指令
     for data, label in labels.items():
         prompts = []
         if not data.exists():
@@ -191,8 +223,8 @@ def add_prompt_hdf5(data_list: List[Path]) -> None:
         with h5py.File(data, 'r+') as src:
             length = src['time'].shape[0]
             if 'prompt' in src.keys():
-                continue
-                # del src['prompt']
+                # continue
+                del src['prompt']
             last_frame = 0
             for l in label:
                 valid = l['valid']
@@ -206,6 +238,31 @@ def add_prompt_hdf5(data_list: List[Path]) -> None:
             dt = h5py.string_dtype(encoding="utf-8")
             src.create_dataset('prompt', data=prompts, dtype=dt)     
         # f.write(f"{data}" + '\n')
+    
+    # 处理粗指令
+    for data, coarse_label in coarse_labels.items():
+        coarse_prompts = []
+        if not data.exists():
+            print(f"{data} not exists")
+            continue
+        
+        with h5py.File(data, 'r+') as src:
+            length = src['time'].shape[0]
+            if 'coarse_prompt' in src.keys():
+                # continue
+                del src['coarse_prompt']
+            last_frame = 0
+            for l in coarse_label:
+                valid = l['valid']
+                prompt = l['prompt'] if valid else 'None'
+                coarse_prompts += [prompt] * (l['frame'] - last_frame)
+                last_frame = l['frame']
+            coarse_prompts += ['None'] * (length - last_frame)
+            # print(coarse_prompts)
+            if 'coarse_prompt' in src.keys():
+                del src['coarse_prompt']
+            dt = h5py.string_dtype(encoding="utf-8")
+            src.create_dataset('coarse_prompt', data=coarse_prompts, dtype=dt)
         
         
 def run(data_dir: str, out_dir: str) -> None:

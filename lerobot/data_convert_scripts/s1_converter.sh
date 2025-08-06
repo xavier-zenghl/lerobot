@@ -11,9 +11,7 @@ SUBDIR_LIST=(
 REPO_ID_LIST=(
   "lerobot_so3_data_30hz"
 )
-TASK_DESCRIPTION_LIST=(
-  "A robot is positioned in front of the checkout counter, where three different types of items and a shopping bag are placed. Packing in the supermarket."
-)
+
 
 cd "$SCRIPT_DIR" || { echo "❌ Failed to cd into $SCRIPT_DIR"; exit 1; }
 
@@ -36,7 +34,6 @@ for idx in "${!SUBDIR_LIST[@]}"; do
   # ------------------ 步骤2: 生成数据集 ------------------
   CUDA_VISIBLE_DEVICES=$GPU_IDX \
     python convert_hdf5_to_lerobot.py \
-      --description "${TASK_DESCRIPTION_LIST[$idx]}" \
       --raw-path "$RAW_PATH" \
       --root-path "$ROOT_PATH" \
       --dataset-repo-id "$REPO_ID" \

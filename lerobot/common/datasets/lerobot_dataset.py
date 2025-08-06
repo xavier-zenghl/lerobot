@@ -335,6 +335,7 @@ class LeRobotDataset(torch.utils.data.Dataset):
         tolerance_s: float = 1e-4,
         download_videos: bool = True,
         local_files_only: bool = False,
+        use_coarse_task: bool = False,
         video_backend: str | None = None,
     ):
         """
@@ -444,6 +445,7 @@ class LeRobotDataset(torch.utils.data.Dataset):
         self.video_backend = video_backend if video_backend else "pyav"
         self.delta_indices = None
         self.local_files_only = local_files_only
+        self.use_coarse_task = use_coarse_task
 
         # Unused attributes
         self.image_writer = None
@@ -589,7 +591,7 @@ class LeRobotDataset(torch.utils.data.Dataset):
         else:
             return get_hf_features_from_features(self.features)
 
-    def _get_query_indices(self, idx: int, ep_idx: int) -> tuple[dict[str, list[int | bool]]]:
+    def _get_query_indices_coarse(self, idx: int, ep_idx: int) -> tuple[dict[str, list[int | bool]]]:
         ep_start = self.episode_data_index["from"][ep_idx]
         ep_end = self.episode_data_index["to"][ep_idx]
         query_indices = {
@@ -599,6 +601,22 @@ class LeRobotDataset(torch.utils.data.Dataset):
         padding = {  # Pad values outside of current episode range
             f"{key}_is_pad": torch.BoolTensor(
                 [(idx + delta < ep_start.item()) | (idx + delta >= ep_end.item()) for delta in delta_idx]
+            )
+            for key, delta_idx in self.delta_indices.items()
+        }
+        return query_indices, padding
+
+    def _get_query_indices_fine(self, idx: int, ep_idx: int, sub_task_index: torch.Tensor, frame_index: torch.Tensor) -> tuple[dict[str, list[int | bool]]]:
+        ep_start = self.episode_data_index["from"][ep_idx]
+        sub_task_start = ep_start + frame_index - sub_task_index[0]
+        sub_task_end = ep_start + frame_index + sub_task_index[1]
+        query_indices = {
+            key: [max(sub_task_start.item(), min(sub_task_end.item(), idx + delta)) for delta in delta_idx]
+            for key, delta_idx in self.delta_indices.items()
+        }
+        padding = {  # Pad values outside of current episode range
+            f"{key}_is_pad": torch.BoolTensor(
+                [(idx + delta < sub_task_start.item()) | (idx + delta > sub_task_end.item()) for delta in delta_idx]
             )
             for key, delta_idx in self.delta_indices.items()
         }
@@ -657,7 +675,12 @@ class LeRobotDataset(torch.utils.data.Dataset):
         query_indices = None
         if self.delta_indices is not None:
             current_ep_idx = self.episodes.index(ep_idx) if self.episodes is not None else ep_idx
-            query_indices, padding = self._get_query_indices(idx, current_ep_idx)
+            if self.use_coarse_task:
+                query_indices, padding = self._get_query_indices_coarse(idx, current_ep_idx)
+            else:
+                sub_task_index = item["sub_task_index"]
+                frame_index = item["frame_index"]
+                query_indices, padding = self._get_query_indices_fine(idx, current_ep_idx, sub_task_index, frame_index)
             query_result = self._query_hf_dataset(query_indices)
             item = {**item, **padding}
             for key, val in query_result.items():
@@ -954,6 +977,29 @@ class LeRobotDataset(torch.utils.data.Dataset):
                 )
             elif key == "episode_index":
                 episode_buffer[key] = np.full((episode_length,), episode_index)
+            elif key == "sub_task_index":
+                fine_task_index = episode_buffer["task_index"][:, 1]
+                sub_task_start = np.zeros(episode_length, dtype=np.int64)
+                sub_task_end   = np.zeros(episode_length, dtype=np.int64)
+
+                # 计算每个 frame 在当前细指令中的位置
+                current_count = 0
+                for i in range(episode_length):
+                    if i > 0 and fine_task_index[i] != fine_task_index[i-1]:
+                        current_count = 0
+                    sub_task_start[i] = current_count
+                    current_count += 1
+
+                # 优化后的 O(N) 方法计算每个 frame 到细指令结束的剩余步数
+                next_change = episode_length
+                for i in range(episode_length - 1, -1, -1):
+                    # 如果是最后一帧或下一个帧的任务编号不同，则更新 next_change
+                    if i == episode_length - 1 or fine_task_index[i] != fine_task_index[i+1]:
+                        next_change = i + 1
+                    sub_task_end[i] = next_change - i - 1
+
+                # 将 start/end 堆叠后写入 buffer
+                episode_buffer["sub_task_index"] = np.stack([sub_task_start, sub_task_end], axis=1)
             elif ft["dtype"] in ["image", "video"]:
                 continue
             elif len(ft["shape"]) == 1 and ft["shape"][0] == 1:

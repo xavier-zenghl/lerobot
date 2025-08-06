@@ -84,6 +84,7 @@ for idx in "${!SUBDIR_LIST[@]}"; do
   echo "MERGE_INPUTS: $MERGE_INPUTS"
 
   echo "🟣 [Step3] 合并 $REPO_ID 的所有子数据集"
+  # TODO: 合并粗细指令
   python merge_split_datasets.py \
       --dataset-dirs "$MERGE_INPUTS" \
       --output-dir "$MERGED_BASE" \

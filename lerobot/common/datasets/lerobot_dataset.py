@@ -63,6 +63,7 @@ from lerobot.common.datasets.video_utils import (
     decode_video_frames_torchvision,
     encode_video_frames,
     get_video_info,
+    encode_video_frames_no_save
 )
 from lerobot.common.robot_devices.robots.utils import Robot
 
@@ -214,7 +215,7 @@ class LeRobotDatasetMetadata:
         task_index = self.task_to_task_index.get(task, None)
         return task_index if task_index is not None else self.total_tasks
 
-    def save_episode(self, episode_index: int, episode_length: int, task: str, task_index: int) -> None:
+    def save_episode(self, episode_index: int, episode_length: int, task: str, task_index: int, object: list[dict] | None = None) -> None:
         self.info["total_episodes"] += 1
         self.info["total_frames"] += episode_length
 
@@ -238,11 +239,12 @@ class LeRobotDatasetMetadata:
         episode_dict = {
             "episode_index": episode_index,
             "tasks": [task],
+            "objects": object,
             "length": episode_length,
         }
         self.episodes.append(episode_dict)
         append_jsonlines(episode_dict, self.root / EPISODES_PATH)
-
+            
         # TODO(aliberts): refactor stats in save_episodes
         # image_sampling = int(self.fps / 2)  # sample 2 img/s for the stats
         # ep_stats = compute_episode_stats(episode_buffer, self.features, episode_length, image_sampling=image_sampling)
@@ -781,6 +783,72 @@ class LeRobotDataset(torch.utils.data.Dataset):
         self.episode_buffer["task_index"].append(task_indexs) 
         self.episode_buffer["size"] += 1
 
+    def add_frame_no_save(self, frame: dict, tasks: list[str], coarse_task: str) -> None:
+        """
+        This function only adds the frame to the episode_buffer. Apart from images — which are written in a
+        temporary directory — nothing is written to disk. To save those frames, the 'save_episode()' method
+        then needs to be called.
+        """
+        # TODO(aliberts, rcadene): Add sanity check for the input, check it's numpy or torch,
+        # check the dtype and shape matches, etc.
+
+        if self.episode_buffer is None:
+            self.episode_buffer = self.create_episode_buffer()
+
+        frame_index = self.episode_buffer["size"]
+        timestamp = frame.pop("timestamp") if "timestamp" in frame else frame_index / self.fps
+        self.episode_buffer["frame_index"].append(frame_index)
+        self.episode_buffer["timestamp"].append(timestamp)
+
+        for key in frame:
+            if key not in self.features:
+                raise ValueError(key)
+
+            if key == "task_extended_indexs":
+                extended_task_indexs = []
+                for task in frame[key]:
+                    task_index = self.meta.get_task_index(task)
+                    extended_task_indexs.append(task_index)
+                    if task_index not in self.meta.tasks:
+                        self.meta.info["total_tasks"] += 1
+                        self.meta.tasks[task_index] = task
+                        task_dict = {
+                            "task_index": task_index,
+                            "task": task,
+                        }
+                        append_jsonlines(task_dict, self.root / TASKS_PATH)
+                self.episode_buffer["task_extended_indexs"].append(extended_task_indexs)
+
+            item = frame[key].numpy() if isinstance(frame[key], torch.Tensor) else frame[key]
+            self.episode_buffer[key].append(item)
+
+        task_indexs = []
+        coarse_task_index = self.meta.get_task_index(coarse_task)
+        task_indexs.append(coarse_task_index)
+        if coarse_task_index not in self.meta.tasks:
+            self.meta.info["total_tasks"] += 1
+            self.meta.tasks[coarse_task_index] = coarse_task
+            task_dict = {
+                "task_index": coarse_task_index,
+                "task": coarse_task,
+            }
+            append_jsonlines(task_dict, self.root / TASKS_PATH)
+
+        for task in tasks:
+            task_index = self.meta.get_task_index(task)
+            task_indexs.append(task_index)
+            if task_index not in self.meta.tasks:
+                self.meta.info["total_tasks"] += 1
+                self.meta.tasks[task_index] = task
+                task_dict = {
+                    "task_index": task_index,
+                    "task": task,
+                }
+                append_jsonlines(task_dict, self.root / TASKS_PATH)
+                
+        self.episode_buffer["task_index"].append(task_indexs) 
+        self.episode_buffer["size"] += 1
+
     def save_episode(self, task: str, encode_videos: bool = True, episode_data: dict | None = None) -> None:
         """
         This will save to disk the current episode in self.episode_buffer. Note that since it affects files on
@@ -838,6 +906,77 @@ class LeRobotDataset(torch.utils.data.Dataset):
 
         if encode_videos and len(self.meta.video_keys) > 0:
             video_paths = self.encode_episode_videos(episode_index)
+            for key in self.meta.video_keys:
+                episode_buffer[key] = video_paths[key]
+
+        if not episode_data:  # Reset the buffer
+            self.episode_buffer = self.create_episode_buffer()
+
+        self.consolidated = False
+
+    def save_episode_no_save(self, task: str, encode_videos: bool = True, episode_data: dict | None = None, object: list[dict] | None = None) -> None:
+        """
+        This will save to disk the current episode in self.episode_buffer. Note that since it affects files on
+        disk, it sets self.consolidated to False to ensure proper consolidation later on before uploading to
+        the hub.
+
+        Use 'encode_videos' if you want to encode videos during the saving of this episode. Otherwise,
+        you can do it later with dataset.consolidate(). This is to give more flexibility on when to spend
+        time for video encoding.
+        """
+
+        if not episode_data:
+            episode_buffer = self.episode_buffer
+
+        episode_length = episode_buffer.pop("size")
+        episode_index = episode_buffer["episode_index"]
+        if episode_index != self.meta.total_episodes:
+            # TODO(aliberts): Add option to use existing episode_index
+            raise NotImplementedError(
+                "You might have manually provided the episode_buffer with an episode_index that doesn't "
+                "match the total number of episodes in the dataset. This is not supported for now."
+            )
+
+        if episode_length == 0:
+            raise ValueError(
+                "You must add one or several frames with `add_frame` before calling `add_episode`."
+            )
+
+        task_index = self.meta.get_task_index(task)
+
+        if not set(episode_buffer.keys()) == set(self.features):
+            raise ValueError()
+
+        for key, ft in self.features.items():
+            if key == "index":
+                episode_buffer[key] = np.arange(
+                    self.meta.total_frames, self.meta.total_frames + episode_length
+                )
+            elif key == "episode_index":
+                episode_buffer[key] = np.full((episode_length,), episode_index)
+            elif ft["dtype"] in ["image", "video"]:
+                continue
+            elif len(ft["shape"]) == 1 and ft["shape"][0] == 1:
+                episode_buffer[key] = np.array(episode_buffer[key], dtype=ft["dtype"])
+            elif len(ft["shape"]) == 1 and ft["shape"][0] > 1:
+                episode_buffer[key] = np.stack(episode_buffer[key])
+            else:
+                raise ValueError(key)
+        self._save_episode_table(episode_buffer, episode_index)
+
+        self.meta.save_episode(episode_index, episode_length, task, task_index, object)
+
+        if encode_videos and len(self.meta.video_keys) > 0:
+            video_paths = {}
+            # pdb.set_trace()
+            for key in self.meta.video_keys:
+                video_path = self.root / self.meta.get_video_file_path(episode_index, key)
+                video_paths[key] = str(video_path)
+                if video_path.is_file():
+                    # Skip if video is already encoded. Could be the case when resuming data recording.
+                    continue
+                encode_video_frames_no_save(episode_buffer[key], video_path, self.fps, overwrite=True, vcodec='hevc_nvenc')
+
             for key in self.meta.video_keys:
                 episode_buffer[key] = video_paths[key]
 

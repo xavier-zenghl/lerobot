@@ -27,6 +27,7 @@ import torch
 import torchvision
 from datasets.features.features import register_feature
 from PIL import Image
+import numpy as np
 
 
 def decode_video_frames_torchvision(
@@ -126,6 +127,80 @@ def decode_video_frames_torchvision(
     assert len(timestamps) == len(closest_frames)
     return closest_frames
 
+def encode_video_frames_no_save(
+    np_frames: list,
+    video_path: Path | str,
+    fps: int,
+    vcodec: str = "hevc_nvenc",
+    pix_fmt: str = "yuv420p",
+    g: int | None = 2,
+    crf: int | None = 20,
+    fast_decode: int = 0,
+    log_level: str | None = "error",
+    overwrite: bool = False,
+) -> None:
+    assert np_frames[0].dtype == np.uint8, "NumPy 数组必须是 uint8 类型"
+    assert np_frames[0].ndim == 3, "输入应为 (帧数, 高度, 宽度, 3)"
+    
+    """More info on ffmpeg arguments tuning on `benchmark/video/README.md`"""
+    video_path = Path(video_path)
+    video_path.parent.mkdir(parents=True, exist_ok=True)
+    height, width = np_frames[0].shape[:2]
+    
+    # 构造 FFmpeg 命令
+    ffmpeg_args = OrderedDict([
+        ("-f", "rawvideo"),
+        ("-vcodec", "rawvideo"),
+        ("-pix_fmt", "rgb24"),
+        ("-s", f"{width}x{height}"),
+        ("-r", str(fps)),
+        ("-i", "-"),
+    ])
+    
+    # 输出编码参数
+    output_args = [
+        "-c:v", vcodec,
+        "-pix_fmt", pix_fmt,
+        "-crf", "23",
+    ]
+
+    if g is not None:
+        ffmpeg_args["-g"] = str(g)
+        ffmpeg_args["-bf"] = "0"
+
+    if crf is not None:
+        ffmpeg_args["-cq"] = str(crf)
+
+    if fast_decode:
+        ffmpeg_args["-preset"] = "fast"
+
+    if log_level is not None:
+        ffmpeg_args["-loglevel"] = str(log_level)
+
+    ffmpeg_args = [item for pair in ffmpeg_args.items() for item in pair]
+    if overwrite:
+        ffmpeg_args.append("-y")
+
+    ffmpeg_cmd = ["ffmpeg"] + ffmpeg_args + output_args + [str(video_path)]
+    
+    # 启动 ffmpeg 进程
+    process = subprocess.Popen(ffmpeg_cmd, stdin=subprocess.PIPE)
+    
+    # 逐帧写入管道（避免内存拷贝）
+    for frame in np_frames:
+        # 确保帧数据连续（避免隐式拷贝）
+        if not frame.flags['C_CONTIGUOUS']:
+            frame = np.ascontiguousarray(frame)
+        process.stdin.write(frame.tobytes())
+    # 关闭管道并等待完成
+    process.stdin.close()
+    process.wait()
+
+    if not video_path.exists():
+        raise OSError(
+            f"Video encoding did not work. File not found: {video_path}. "
+            f"Try running the command manually to debug: `{''.join(ffmpeg_cmd)}`"
+        )
 
 def encode_video_frames(
     imgs_dir: Path | str,

@@ -127,3 +127,17 @@ bash s1_converter.sh
 cd lerobot/lerobot/data_convert_scripts
 bash S1_converter_multi_process.sh
 ```
+
+## 更新日志
+
+### 最新更新
+
+1. **明确并统一state、action各个维度的定义**：已将state和action的维度定义写入`info.json`文件中，确保数据格式的一致性。
+
+2. **优化指令处理方式**：不再对细指令进行视频切分，粗指令和细指令都保存在`task_index`中：
+   - `task_index[0]`：粗指令
+   - `task_index[1]`：细指令
+
+3. **待办事项**：
+   - [ ] 更新读取task规则
+   - [ ] 更新action padding方式

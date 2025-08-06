@@ -209,8 +209,8 @@ def add_prompt_hdf5(data_list: List[Path]) -> None:
         
         
 def run(data_dir: str, out_dir: str) -> None:
-    if not os.path.exists(out_dir):
-        os.makedirs(out_dir, exist_ok=True)
+    # if not os.path.exists(out_dir):
+        # os.makedirs(out_dir, exist_ok=True)
         
     root_dir = Path(data_dir)
     data_list = list(root_dir.rglob('*).json'))

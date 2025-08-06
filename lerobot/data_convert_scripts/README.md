@@ -32,6 +32,23 @@ lerobot/
 ### 步骤1：预处理 - 添加Prompt标签
 
 在使用转换脚本之前，需要先为HDF5文件添加prompt标签，请根据task修改json_process.py：
+```
+### 修改这一部分适应数据集
+subject = label['attributes']['Arm']
+subject = subject[0] if len(subject) > 0 else ''
+object = label['attributes']['Object']
+object = object[0] if len(object) > 0 else ''
+target = label['attributes']['Action']
+target = target[0] if len(target) > 0 else ''
+# target = label['attributes']['Target'][0]
+
+prompt = TARGET_DICT[target].format(preprocess_object(object))
+
+if subject != '':
+    prompt = 'the ' + subject.replace("_", " ")  + ' ' + prompt
+        
+### 修改这一部分适应数据集
+```
 
 ```bash
 cd lerobot/datatools

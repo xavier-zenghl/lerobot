@@ -676,8 +676,10 @@ class LeRobotDataset(torch.utils.data.Dataset):
         if self.delta_indices is not None:
             current_ep_idx = self.episodes.index(ep_idx) if self.episodes is not None else ep_idx
             if self.use_coarse_task:
+                item["task_index"] = item["task_index"][0]
                 query_indices, padding = self._get_query_indices_coarse(idx, current_ep_idx)
             else:
+                item["task_index"] = item["task_index"][1]
                 sub_task_index = item["sub_task_index"]
                 frame_index = item["frame_index"]
                 query_indices, padding = self._get_query_indices_fine(idx, current_ep_idx, sub_task_index, frame_index)
@@ -706,6 +708,7 @@ class LeRobotDataset(torch.utils.data.Dataset):
             f"    Repository ID: '{self.repo_id}',\n"
             f"    Number of selected episodes: '{self.num_episodes}',\n"
             f"    Number of selected samples: '{self.num_frames}',\n"
+            f"    Prompts type: {'coarse' if self.use_coarse_task else 'fine'},\n"
             f"    Features: '{feature_keys}',\n"
             "})',\n"
         )
@@ -1151,6 +1154,7 @@ class LeRobotDataset(torch.utils.data.Dataset):
         image_writer_processes: int = 0,
         image_writer_threads: int = 0,
         video_backend: str | None = None,
+        use_coarse_task: bool = False,
     ) -> "LeRobotDataset":
         """Create a LeRobot Dataset from scratch in order to record data."""
         obj = cls.__new__(cls)
@@ -1168,7 +1172,7 @@ class LeRobotDataset(torch.utils.data.Dataset):
         obj.local_files_only = obj.meta.local_files_only
         obj.tolerance_s = tolerance_s
         obj.image_writer = None
-
+        obj.use_coarse_task = use_coarse_task
         if image_writer_processes or image_writer_threads:
             obj.start_image_writer(image_writer_processes, image_writer_threads)
 
@@ -1188,6 +1192,7 @@ class LeRobotDataset(torch.utils.data.Dataset):
         obj.delta_indices = None
         obj.episode_data_index = None
         obj.video_backend = video_backend if video_backend is not None else "pyav"
+        
         return obj
 
 
@@ -1209,6 +1214,7 @@ class MultiLeRobotDataset(torch.utils.data.Dataset):
         download_videos: bool = True,
         local_files_only: bool = False,
         video_backend: str | None = None,
+        use_coarse_task: bool = False,
     ):
         super().__init__()
         self.repo_ids = repo_ids
@@ -1227,6 +1233,7 @@ class MultiLeRobotDataset(torch.utils.data.Dataset):
                 download_videos=download_videos,
                 local_files_only=local_files_only,
                 video_backend=video_backend,
+                use_coarse_task=use_coarse_task,
             )
             for repo_id in repo_ids
         ]
@@ -1366,6 +1373,7 @@ class MultiLeRobotDataset(torch.utils.data.Dataset):
             f"  Repository IDs: '{self.repo_ids}',\n"
             f"  Number of Samples: {self.num_frames},\n"
             f"  Number of Episodes: {self.num_episodes},\n"
+            f"  Prompts type: {'coarse' if self.use_coarse_task else 'fine'},\n"
             f"  Type: {'video (.mp4)' if self.video else 'image (.png)'},\n"
             f"  Recorded Frames per Second: {self.fps},\n"
             f"  Camera Keys: {self.camera_keys},\n"

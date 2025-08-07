@@ -139,6 +139,57 @@ def get_stats_einops_patterns(dataset, num_workers=0):
 
     return stats_patterns
 
+def get_features_dict(dataset):
+    features_dict = {
+        "images_dict.head.rgb": {
+            "dtype": "video",
+            "shape": [3, 480, 640],
+            "names": ["channel", "height", "width"],
+            "video_info": {
+                "video.fps": 30.0,
+                "video.height": 480,
+                "video.width": 640,
+                "video.channels": 3,
+                "video.codec": "h264",
+                "video.pix_fmt": "yuv420p",
+                "video.is_depth_map": False,
+                "has_audio": False,
+            },
+        },
+        "images_dict.left.rgb": {
+            "dtype": "video",
+            "shape": [3, 480, 640],
+            "names": ["channel", "height", "width"],
+            "video_info": {
+                "video.fps": 30.0,
+                "video.height": 480,
+                "video.width": 640,
+                "video.channels": 3,
+                "video.codec": "h264",
+                "video.pix_fmt": "yuv420p",
+                "video.is_depth_map": False,
+                "has_audio": False,
+            },
+        },
+        "images_dict.right.rgb": {
+            "dtype": "video",
+            "shape": [3, 480, 640],
+            "names": ["channel", "height", "width"],
+            "video_info": {
+                "video.fps": 30.0,
+                "video.height": 480,
+                "video.width": 640,
+                "video.channels": 3,
+                "video.codec": "h264",
+                "video.pix_fmt": "yuv420p",
+                "video.is_depth_map": False,
+                "has_audio": False,
+            },
+        }
+    }
+    for key in DATASET_FEATURES["agibot"]:
+        features_dict[key] = DATASET_FEATURES["agibot"][key]
+    return features_dict
 
 def compute_stats(dataset, batch_size=64, num_workers=20, max_num_samples=None):
     """Compute mean/std and min/max statistics of all data keys in a LeRobotDataset."""
@@ -319,6 +370,29 @@ class AgiBotDataset(LeRobotDataset):
                 episode_buffer[key] = np.full((episode_length,), episode_index)
             # elif key == "task_index":
             #     episode_buffer[key] = np.full((episode_length,), task_index)
+            elif key == "sub_task_index":
+                fine_task_index = episode_buffer["task_index"][:, 1]
+                sub_task_start = np.zeros(episode_length, dtype=np.int64)
+                sub_task_end   = np.zeros(episode_length, dtype=np.int64)
+
+                # 计算每个 frame 在当前细指令中的位置
+                current_count = 0
+                for i in range(episode_length):
+                    if i > 0 and fine_task_index[i] != fine_task_index[i-1]:
+                        current_count = 0
+                    sub_task_start[i] = current_count
+                    current_count += 1
+
+                # 优化后的 O(N) 方法计算每个 frame 到细指令结束的剩余步数
+                next_change = episode_length
+                for i in range(episode_length - 1, -1, -1):
+                    # 如果是最后一帧或下一个帧的任务编号不同，则更新 next_change
+                    if i == episode_length - 1 or fine_task_index[i] != fine_task_index[i+1]:
+                        next_change = i + 1
+                    sub_task_end[i] = next_change - i - 1
+
+                # 将 start/end 堆叠后写入 buffer
+                episode_buffer["sub_task_index"] = np.stack([sub_task_start, sub_task_end], axis=1)
             elif ft["dtype"] in ["image", "video"]:
                 continue
             elif len(ft["shape"]) == 1 and ft["shape"][0] == 1:
@@ -709,13 +783,14 @@ def main(
     task_desc = task_desc.replace(".", "")
     repo_id = f"{task_desc}/lerobot_so3_data_30hz"
 
+    features = get_features_dict()
 
     dataset = AgiBotDataset.create(
         repo_id=repo_id,
         root=f"{tgt_path}/{repo_id}",
         fps=30,
         robot_type="agibot-go1",
-        features=DATASET_FEATURES["agibot"],
+        features=features,
         tolerance_s=0.06
     )
 

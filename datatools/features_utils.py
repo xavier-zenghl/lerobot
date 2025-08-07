@@ -84,5 +84,37 @@ DATASET_FEATURES = {
                             + [f"right_gripper_action_{i}" for i in range(Cartesian_Dim.RIGHT_GRIPPER)]
                             + [f"head_action_{i}" for i in Cartesian_Dim.HEAD]
                             + [f"chassis_action_{i}" for i in range(Cartesian_Dim.CHASSIS)],
+    },
+    "agibot": {
+        "joints_dict.joints_position_state": [f"chassis_state_{i}" for i in ["x", "y", "yaw"]]
+                            + [f"waist_state_{i}" for i in ["pitch", "lift"]] 
+                            + [f"torso_state_{i}" for i in range(2, Joint_Dim.TORSO)] 
+                            + [f"left_arm_state_{i}" for i in range(Joint_Dim.LEFT_ARM)] 
+                            + [f"left_gripper_state_{i}" for i in range(Joint_Dim.LEFT_GRIPPER)] 
+                            + [f"right_arm_state_{i}" for i in range(Joint_Dim.RIGHT_ARM)] 
+                            + [f"right_gripper_state_{i}" for i in range(Joint_Dim.RIGHT_GRIPPER)] 
+                            + [f"head_state_{i}" for i in Joint_Dim.HEAD],
+        "cartesian_so3_dict.cartesian_pose_state": [f"torso_padding_{i}" for i in range(Cartesian_Dim.TORSO)]
+                            + [f"left_arm_state_{i}" for i in range(Cartesian_Dim.LEFT_ARM)]
+                            + [f"left_gripper_state_{i}" for i in range(Cartesian_Dim.LEFT_GRIPPER)]
+                            + [f"right_arm_state_{i}" for i in range(Cartesian_Dim.RIGHT_ARM)] 
+                            + [f"right_gripper_state_{i}" for i in range(Cartesian_Dim.RIGHT_GRIPPER)]
+                            + [f"head_state_{i}" for i in Cartesian_Dim.HEAD]
+                            + [f"chassis_state_{i}" for i in ["x", "y", "yaw"]],
+        "joints_dict.joints_position_command": [f"chassis_{i}" for i in ["action_velocity_x", "action_velocity_yaw", "padding_2"]]
+                            + [f"waist_action_{i}" for i in ["pitch", "lift"]] 
+                            + [f"torso_padding_{i}" for i in range(2, Joint_Dim.TORSO)] 
+                            + [f"left_arm_action_{i}" for i in range(Joint_Dim.LEFT_ARM)] 
+                            + [f"left_gripper_action_{i}" for i in range(Joint_Dim.LEFT_GRIPPER)] 
+                            + [f"right_arm_action_{i}" for i in range(Joint_Dim.RIGHT_ARM)] 
+                            + [f"right_gripper_action_{i}" for i in range(Joint_Dim.RIGHT_GRIPPER)] 
+                            + [f"head_action_{i}" for i in Joint_Dim.HEAD],
+        "cartesian_so3_dict.cartesian_pose_command": [f"torso_padding_{i}" for i in range(Cartesian_Dim.TORSO)]
+                            + [f"left_arm_action_{i}" for i in range(Cartesian_Dim.LEFT_ARM)]
+                            + [f"left_gripper_action_{i}" for i in range(Cartesian_Dim.LEFT_GRIPPER)]
+                            + [f"right_arm_action_{i}" for i in range(Cartesian_Dim.RIGHT_ARM)] 
+                            + [f"right_gripper_action_{i}" for i in range(Cartesian_Dim.RIGHT_GRIPPER)]
+                            + [f"head_action_{i}" for i in Cartesian_Dim.HEAD]
+                            + [f"chassis_action_{i}" for i in ["action_velocity_x", "action_velocity_yaw", "padding_2"]],
     }         
 }

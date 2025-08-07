@@ -336,6 +336,7 @@ class LeRobotDataset(torch.utils.data.Dataset):
         download_videos: bool = True,
         local_files_only: bool = False,
         use_coarse_task: bool = False,
+        replace_state_with_action: bool = False,
         video_backend: str | None = None,
     ):
         """
@@ -446,6 +447,7 @@ class LeRobotDataset(torch.utils.data.Dataset):
         self.delta_indices = None
         self.local_files_only = local_files_only
         self.use_coarse_task = use_coarse_task
+        self.replace_state_with_action = replace_state_with_action
 
         # Unused attributes
         self.image_writer = None
@@ -676,9 +678,17 @@ class LeRobotDataset(torch.utils.data.Dataset):
         if self.delta_indices is not None:
             current_ep_idx = self.episodes.index(ep_idx) if self.episodes is not None else ep_idx
             if self.use_coarse_task:
+                if self.replace_state_with_action:
+                    for key in item:
+                        if key.endswith("state") and item['index'] != 0:
+                            item[key] = self.hf_dataset[idx - 1][key.replace("state", "command")]
                 item["task_index"] = item["task_index"][0]
                 query_indices, padding = self._get_query_indices_coarse(idx, current_ep_idx)
             else:
+                if self.replace_state_with_action:
+                    for key in item:
+                        if key.endswith("state") and item['sub_task_index'][0] != 0:
+                            item[key] = self.hf_dataset[idx - 1][key.replace("state", "command")]
                 item["task_index"] = item["task_index"][1]
                 sub_task_index = item["sub_task_index"]
                 frame_index = item["frame_index"]
@@ -1155,6 +1165,7 @@ class LeRobotDataset(torch.utils.data.Dataset):
         image_writer_threads: int = 0,
         video_backend: str | None = None,
         use_coarse_task: bool = False,
+        replace_state_with_action: bool = False,
     ) -> "LeRobotDataset":
         """Create a LeRobot Dataset from scratch in order to record data."""
         obj = cls.__new__(cls)
@@ -1173,6 +1184,7 @@ class LeRobotDataset(torch.utils.data.Dataset):
         obj.tolerance_s = tolerance_s
         obj.image_writer = None
         obj.use_coarse_task = use_coarse_task
+        obj.replace_state_with_action = replace_state_with_action
         if image_writer_processes or image_writer_threads:
             obj.start_image_writer(image_writer_processes, image_writer_threads)
 
@@ -1215,6 +1227,7 @@ class MultiLeRobotDataset(torch.utils.data.Dataset):
         local_files_only: bool = False,
         video_backend: str | None = None,
         use_coarse_task: bool = False,
+        replace_state_with_action: bool = False,
     ):
         super().__init__()
         self.repo_ids = repo_ids
@@ -1234,6 +1247,7 @@ class MultiLeRobotDataset(torch.utils.data.Dataset):
                 local_files_only=local_files_only,
                 video_backend=video_backend,
                 use_coarse_task=use_coarse_task,
+                replace_state_with_action=replace_state_with_action,
             )
             for repo_id in repo_ids
         ]

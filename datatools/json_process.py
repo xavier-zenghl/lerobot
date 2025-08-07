@@ -22,9 +22,14 @@ target_size = (384, 384)
 
 TARGET_DICT = {
     "open": "open the {}",
+    "pick_up": "pick up the {}",
+    "wipe_up": "wipes up the {}",
     "release": "release the {}",
     "grab": "pick up the {}",
+    "grasp": "pick up the {}",
     "put_it_in_the_plastic_bag": "place {} in the plastic bag",
+    "put_it_on_the_table": "place {} on the table",
+    "put_it_on_the_plate": "place {} on the plate",
     "back_home": "back to home{}",
 }
 
@@ -127,6 +132,7 @@ def transform_annotation_to_instruction(data_Path: Path) -> dict:
             try:
                 for label in json.loads(labels['result'])['annotations'][0]['result']:
                     # print(label)
+                    # import ipdb; ipdb.set_trace()
                     if 'attributes' not in label.keys():
                         clean_labels = {
                                 'frame': int(label['time'] * 30),
@@ -144,9 +150,9 @@ def transform_annotation_to_instruction(data_Path: Path) -> dict:
                         continue
                     
                     ### 细指令 修改这一部分适应数据集
-                    subject = label['attributes']['Arm']
-                    subject = subject[0] if len(subject) > 0 else ''
-                    object = label['attributes']['Object']
+                    # subject = label['attributes']['Arm']
+                    # subject = subject[0] if len(subject) > 0 else ''
+                    object = label['attributes']['GraspObject']
                     object = object[0] if len(object) > 0 else ''
                     target = label['attributes']['Action']
                     target = target[0] if len(target) > 0 else ''
@@ -154,8 +160,8 @@ def transform_annotation_to_instruction(data_Path: Path) -> dict:
 
                     prompt = TARGET_DICT[target].format(preprocess_object(object))
                     
-                    if subject != '':
-                        prompt = 'the ' + subject.replace("_", " ")  + ' ' + prompt
+                    # if subject != '':
+                    #     prompt = 'the ' + subject.replace("_", " ")  + ' ' + prompt
                             
                     ### 细指令 修改这一部分适应数据集
 
@@ -182,7 +188,7 @@ def transform_annotation_to_instruction(data_Path: Path) -> dict:
                         continue
 
                     ### 方案一，当前任务使用统一的粗指令填充
-                    coarse_prompt = 'A robot is positioned in front of the checkout counter, where three different types of items and a shopping bag are placed. Packing in the supermarket.'
+                    coarse_prompt = "Pick up all the fruits one by one and place them into the plate."
                     coarse_labels = {
                         'frame': frame['frame'],
                         'prompt': coarse_prompt,
@@ -268,7 +274,8 @@ def run(data_dir: str, out_dir: str) -> None:
         # os.makedirs(out_dir, exist_ok=True)
         
     root_dir = Path(data_dir)
-    data_list = list(root_dir.rglob('*).json'))
+    data_list = list(root_dir.rglob('*s1.json'))
+    print(data_list)
     random.shuffle(data_list)
     
     print(f"find json files: {len(data_list)}")

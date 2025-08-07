@@ -127,10 +127,6 @@ REPO_ID_LIST=(
   "lerobot_so3_data_30hz"
 )
 
-# 任务描述
-TASK_DESCRIPTION_LIST=(
-  "A robot is positioned in front of the checkout counter, where three different types of items and a shopping bag are placed. Packing in the supermarket."
-)
 ```
 
 #### 多进程转换 (`S1_converter_multi_process.sh`)
@@ -175,5 +171,6 @@ bash S1_converter_multi_process.sh
    - `task_index[1]`：细指令
 
 3. **待办事项**：
-   - [ ] 更新读取task规则
-   - [ ] 更新action padding方式
+   - [x] 更新读取task规则
+   - [x] 更新action padding方式
+   - [ ] 更新合并数据集

@@ -31,6 +31,9 @@ TARGET_DICT = {
     "put_it_on_the_table": "place {} on the table",
     "put_it_on_the_plate": "place {} on the plate",
     "back_home": "back to home{}",
+    "fold": "fold the {}",
+    "press_and_hold": "press and hold the {}",
+    "put_it_in_the_middle_of_the_table": "place {} in the middle of the table",
 }
 
 OBJECT_DICT = {
@@ -128,7 +131,6 @@ def transform_annotation_to_instruction(data_Path: Path) -> dict:
             # print(labels)
             src_file = labels['fileName'].replace('mp4', 'hdf5').replace('label_video_', '')
             src_file = data_Path.parent.parent / 'hdf5' / src_file
-
             try:
                 for label in json.loads(labels['result'])['annotations'][0]['result']:
                     # print(label)
@@ -150,9 +152,10 @@ def transform_annotation_to_instruction(data_Path: Path) -> dict:
                         continue
                     
                     ### 细指令 修改这一部分适应数据集
-                    # subject = label['attributes']['Arm']
-                    # subject = subject[0] if len(subject) > 0 else ''
-                    object = label['attributes']['GraspObject']
+                    subject = label['attributes']['Arm']
+                    subject = subject[0] if len(subject) > 0 else ''
+                    # object = label['attributes']['GraspObject']
+                    object = label['attributes']['Object']
                     object = object[0] if len(object) > 0 else ''
                     target = label['attributes']['Action']
                     target = target[0] if len(target) > 0 else ''
@@ -160,8 +163,8 @@ def transform_annotation_to_instruction(data_Path: Path) -> dict:
 
                     prompt = TARGET_DICT[target].format(preprocess_object(object))
                     
-                    # if subject != '':
-                    #     prompt = 'the ' + subject.replace("_", " ")  + ' ' + prompt
+                    if subject != '':
+                        prompt = 'the ' + subject.replace("_", " ")  + ' ' + prompt
                             
                     ### 细指令 修改这一部分适应数据集
 
@@ -188,7 +191,7 @@ def transform_annotation_to_instruction(data_Path: Path) -> dict:
                         continue
 
                     ### 方案一，当前任务使用统一的粗指令填充
-                    coarse_prompt = "Pick up all the fruits one by one and place them into the plate."
+                    coarse_prompt = "After folding the towel, place it in the center of the table."
                     coarse_labels = {
                         'frame': frame['frame'],
                         'prompt': coarse_prompt,
@@ -274,7 +277,7 @@ def run(data_dir: str, out_dir: str) -> None:
         # os.makedirs(out_dir, exist_ok=True)
         
     root_dir = Path(data_dir)
-    data_list = list(root_dir.rglob('*s1.json'))
+    data_list = list(root_dir.rglob('*).json'))
     print(data_list)
     random.shuffle(data_list)
     

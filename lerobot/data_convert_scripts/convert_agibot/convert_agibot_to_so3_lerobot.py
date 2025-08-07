@@ -139,7 +139,7 @@ def get_stats_einops_patterns(dataset, num_workers=0):
 
     return stats_patterns
 
-def get_features_dict(dataset):
+def get_features_dict():
     features_dict = {
         "images_dict.head.rgb": {
             "dtype": "video",
@@ -188,7 +188,12 @@ def get_features_dict(dataset):
         }
     }
     for key in DATASET_FEATURES["agibot"]:
-        features_dict[key] = DATASET_FEATURES["agibot"][key]
+        features_dict[key] = {
+            "dtype": "float64",
+            "shape": (len(DATASET_FEATURES["agibot"][key]),),
+            "names": DATASET_FEATURES["agibot"][key],
+        }
+
     return features_dict
 
 def compute_stats(dataset, batch_size=64, num_workers=20, max_num_samples=None):
@@ -571,10 +576,7 @@ def load_local_dataset(episode_id: int, src_path: str, task_id: int) -> list | N
         # 设置state_head的值
         joints_position_state[:, 23:25] = state_head_position  # state_head_position (yaw, pitch)
 
-        assert (
-            action_joint.shape[0] == action_effector.shape[0]
-        ), f"shape of action_joint:{action_joint.shape};shape of action_effector:{action_effector.shape}"
-            # 创建25维的joints_position_command数组
+        # 创建25维的joints_position_command数组
         joints_position_command = np.zeros((len(action_joint), 25), dtype=np.float64)
         
         # 设置chassis的值
@@ -608,7 +610,10 @@ def load_local_dataset(episode_id: int, src_path: str, task_id: int) -> list | N
         state_eef_1_so3 = xyz_quat_to_xyz_so3(state_eef_1)
         
         # 创建31维的cartesian_pose_state数组
-        cartesian_pose_state = np.zeros((len(state_joint), 31), dtype=np.float64)
+        cartesian_pose_state = np.zeros((len(state_joint), 34), dtype=np.float64)
+
+        if state_chassis_position.shape[0] == action_joint.shape[0]:
+            cartesian_pose_state[:, -3:] = chassis_state
         
         # 设置state_eef的值
         cartesian_pose_state[:, 9:18] = state_eef_0_so3  # state_eef[0]
@@ -631,7 +636,10 @@ def load_local_dataset(episode_id: int, src_path: str, task_id: int) -> list | N
         # action_eef_1_so3 = xyz_quat_to_xyz_so3(action_eef_1)
         
         # 创建31维的cartesian_pose_command数组
-        cartesian_pose_command = np.zeros((len(action_joint), 31), dtype=np.float64)
+        cartesian_pose_command = np.zeros((len(action_joint), 34), dtype=np.float64)
+
+        if action_chassis_velocity.shape[0] == action_joint.shape[0]:
+            cartesian_pose_command[:, -3:-1] = action_chassis_velocity[:]  # chassis_action (x, yaw)
         
         # 设置action_eef的值
         # cartesian_pose_command[:, 9:18] = action_eef_0_so3  # action_eef[0]
@@ -652,10 +660,6 @@ def load_local_dataset(episode_id: int, src_path: str, task_id: int) -> list | N
             cartesian_pose_command[1:],  # 删除第一个元素
             last_so3_command  # 添加最后一个元素
         ])
-
-        assert len(joints_position_state) == len(
-            joints_position_command
-        ), f"Number of states and actions are not equal"
     
     except Exception as e:
         logging.error(f"load_local_dataset failed: {e}")

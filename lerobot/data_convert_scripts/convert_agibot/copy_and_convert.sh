@@ -4,12 +4,8 @@ source /home/xavierzeng/code/miniconda3/bin/activate
 conda activate lerobot_data
 
 # task_id 列表，可以根据实际情况填入
-# bad：327 352 354 363
+
 # task_ids=("327" "352" "354" "357" "358" "363" "428") 
-# task_ids=("438" "508" "509" "510") 
-task_ids=("438" "508" "359" "360" "428" "444")
-# task_ids=("501" "504" "505" "506" "507")  # 示例task_id，可以替换为实际任务 ID
-# task_ids=("503")
 
 # 定义源路径和目标路径
 source_path="/home/xavierzeng/mnt/nas_data/temp-data/Agibot_data_raw/observations"

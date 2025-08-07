@@ -6,7 +6,7 @@ SCRIPT_DIR="/home/xavierzeng/workspace/code/lerobot/lerobot/data_convert_scripts
 GPU_IDX=0
 
 SUBDIR_LIST=(
-  "0730_pick_fruits_s1"
+  "0730_Fold_towels_s1"
 )
 REPO_ID_LIST=(
   "lerobot_debug"

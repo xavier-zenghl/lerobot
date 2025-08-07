@@ -1,15 +1,15 @@
 #!/bin/bash
 
-BASE_DIR="/home/xavierzeng/workspace/data/"
-ROOT_PATH="/home/xavierzeng/workspace/data/test/"
-SCRIPT_DIR="/home/xavierzeng/workspace/code/lerobot/lerobot/data_convert_scripts"
+BASE_DIR="/home/cedric/Pictures/todo/"
+ROOT_PATH="/home/cedric/Pictures/todo/"
+SCRIPT_DIR="/home/cedric/Music/astribot_project/lerobot_v2.0/lerobot/data_convert_scripts"
 GPU_IDX=0
 
 SUBDIR_LIST=(
-  "0731_desktop_Storage_S8"
+  "debug"
 )
 REPO_ID_LIST=(
-  "lerobot_so3_data_30hz"
+  "lerobot_debug"
 )
 
 

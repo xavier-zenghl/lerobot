@@ -15,8 +15,6 @@ from pathlib import Path
 from typing import List, Union, Any
 from multiprocessing import Process
 
-from datatools.utils import merge_txt
-
 # 需根据节点CPU算力情况进行调整，H100内部节点建议总进程数16个左右，本机建议4-8个节点
 NUM_CPU = 1
 PROC_PER_DEVICE = 1

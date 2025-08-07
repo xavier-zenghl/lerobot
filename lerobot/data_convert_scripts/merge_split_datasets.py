@@ -1,7 +1,7 @@
 import argparse
 import os
 import shutil
-import json
+import json, jsonlines
 import pandas as pd
 from pathlib import Path
 from tqdm import tqdm
@@ -15,7 +15,7 @@ def merge_lerobot_datasets(dataset_dirs, output_dir, chunk_size=1000, max_worker
 
     merged_info = {
         "codebase_version": "v2.0",
-        "robot_type": None,
+        "robot_type": "Astribot_S1",
         "total_episodes": 0,
         "total_frames": 0,
         "total_tasks": 0,
@@ -42,7 +42,16 @@ def merge_lerobot_datasets(dataset_dirs, output_dir, chunk_size=1000, max_worker
     all_tasks = sorted(task_text_to_entry.values(), key=lambda x: x["task"])
     for i, task in enumerate(all_tasks):
         task["task_index"] = i
+        
+    for dataset_dir in dataset_dirs:
+        tasks_path = Path(dataset_dir) / "meta/tasks.jsonl"
+        with jsonlines.open(tasks_path, 'r') as f:
+            tasks = list(f)
 
+    for dataset_dir in dataset_dirs:
+        tasks_path = Path(dataset_dir) / "meta/tasks.jsonl"
+        with open(tasks_path, "r", encoding="utf-8") as f:
+            tasks = json.load(f)
     # --------- 2. 收集所有 episode 的 parquet、视频路径和 meta ---------
     all_jobs = []
     views = [
@@ -58,7 +67,12 @@ def merge_lerobot_datasets(dataset_dirs, output_dir, chunk_size=1000, max_worker
         with open(info_path, "r", encoding="utf-8") as f:
             info = json.load(f)
         if not merged_info["robot_type"]:
-            merged_info["robot_type"] = info["robot_type"]
+            merged_info["robot_type"] = info["robot_type"]        prompt = df['prompt'].to_numpy()[0]
+        prompt = ''.join(chr(num) for num in prompt).split('\0')[0].strip()
+        for task in tasks:
+            if task['task'] == prompt:
+                task_index = task['task_index']
+                break
             merged_info["features"] = info["features"]
         merged_info["total_frames"] += info.get("total_frames", 0)
         merged_info["total_videos"] += info.get("total_videos", 0)
